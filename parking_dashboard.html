@@ -2,9 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>佳元松江社區 停車位即時狀態</title>
+  <title>佳元松江社區 一樓停車位即時狀態</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- 引入 Tailwind CSS for responsive and modern styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     /* 自定義滾動條樣式 */
@@ -48,7 +47,7 @@
       overflow: hidden;
       box-shadow: 0 4px 15px rgba(0,0,0,0.08);
       transition: all 0.3s ease-in-out;
-      cursor: default; /* 移除可點擊樣式 */
+      cursor: default;
     }
     
     .spot:hover {
@@ -77,18 +76,15 @@
         font-weight: bold;
     }
 
-    /* 可用狀態的漸層和動畫 */
     .available { 
       background: linear-gradient(45deg, #66bb6a, #43a047); 
     }
     
-    /* 佔用狀態的漸層和動畫 */
     .occupied { 
       background: linear-gradient(45deg, #ef5350, #d32f2f); 
       animation: occupiedPulse 2.5s infinite ease-in-out;
     }
     
-    /* 佔用狀態的脈衝動畫 */
     @keyframes occupiedPulse {
         0%, 100% { box-shadow: 0 4px 15px rgba(239, 83, 80, 0.2); }
         50% { box-shadow: 0 8px 25px rgba(239, 83, 80, 0.4); }
@@ -108,13 +104,11 @@
       transition: all 0.3s ease;
     }
 
-    /* 新增：刷新按鈕點擊時的動態效果 */
     #refresh:active {
         transform: translateY(1px);
         box-shadow: 0 2px 10px rgba(46,85,64,0.4);
     }
     
-    /* 刷新時的動畫 */
     .spot.refreshing {
         animation: spotRefresh 0.8s ease-in-out;
     }
@@ -130,8 +124,8 @@
       margin-top: 0.25rem;
     }
     .car-info {
-        font-size: 0.75rem;
-        font-weight: normal;
+        font-size: 1rem;
+        font-weight: bold;
         margin-top: 0.25rem;
         line-height: 1.3;
         width: 100%;
@@ -140,19 +134,20 @@
 </head>
 <body class="antialiased">
   <div class="container mx-auto p-4">
-    <h1 id="dashboardTitle" class="text-3xl font-bold text-center text-gray-800 my-4">佳元松江社區 停車位狀態</h1>
+    <h1 id="dashboardTitle" class="text-3xl font-bold text-center text-gray-800 my-4">佳元松江社區 一樓停車位儀表板</h1>
     <div class="grid" id="parkingGrid"></div>
-    <button id="refresh">刷新停車狀態</button>
+    <div class="flex flex-col sm:flex-row justify-center mt-4 space-y-2 sm:space-y-0 sm:space-x-4">
+        <button id="refresh">刷新停車狀態</button>
+    </div>
   </div>
   <script>
-    // 內嵌您的 CSV 數據
     const parkingCsvData = `日期,停放時間,離開時間,車牌號碼,戶別,停車人,停放地點,車位號
-2025-08-02,12:01:00,,GD8899,3CD-3樓,屋主,一樓外圍,無
+114/08/02,12:01:00,,GD8899,3CD-3樓,屋主,一樓外圍,無
 2025-08-02,10:49:00,,5989-EY,10B-10樓,屋主梁本郁之母（翁經理）,騎樓入口,B2-05
 2025-08-02,12:01:00,,ATD-6886,5D-5樓,屋主本人,一樓外圍,無
-2025-08-02,12:25:00,14:10:00,EBC-2270,6B-6樓,屋主本人,一樓外圍,B2-06
-2025-08-02,12:59:00,14:18:00,BFA-0050,5C-5樓,屋主王子嫣的先生(陳伍佰),一樓外圍,B2-14
-2025-08-02,15:08:00,16:48:00,AXS-5005,7C-7樓,屋主友人,一樓外圍,無`;
+2025-08-02,12:25,14:10,EBC-2270,6B-6樓,屋主本人,一樓外圍,B2-06
+2025-08-02,12:59,14:18,BFA-0050,5C-5樓,屋主王子嫣的先生(陳伍佰),一樓外圍,B2-14
+2025-08-02,15:08,16:48,AXS-5005,7C-7樓,屋主友人,一樓外圍,無`;
 
     function renderParking() {
       const grid = document.getElementById('parkingGrid');
@@ -165,7 +160,7 @@
       setTimeout(() => {
         grid.innerHTML = '';
         
-        const lines = parkingCsvData.split('\n').filter(line => line.trim() !== '');
+        const lines = parkingCsvData.split(/\r?\n/).filter(line => line.trim() !== '');
         if (lines.length < 2) {
             spots.forEach(spot => spot.classList.remove('refreshing'));
             return;
@@ -187,11 +182,9 @@
           return;
         }
 
-        const dateValue = dataRows[0].split(',')[dateIndex].trim();
-        document.getElementById('dashboardTitle').textContent = `佳元松江社區 停車位狀態 (${dateValue})`;
-        
         const occupiedCarInfo = dataRows.map(row => row.split(','))
           .map(values => ({
+            date: values[dateIndex]?.trim(),
             parkingTime: values[parkingTimeIndex]?.trim(),
             leaveTime: values[leaveTimeIndex]?.trim(),
             carPlate: values[carPlateIndex]?.trim(),
@@ -199,6 +192,11 @@
           }))
           .filter(car => car.parkingTime && !car.leaveTime);
 
+        // 處理日期格式
+        const firstDate = dataRows[0].split(',')[dateIndex].trim();
+        const formattedDate = firstDate.replace('年', '-').replace('月', '-').replace('日', '');
+        document.getElementById('dashboardTitle').textContent = `佳元松江社區 一樓停車位儀表板 (${formattedDate})`;
+        
         const occupiedCount = occupiedCarInfo.length;
         for (let i = 1; i <= 7; i++) {
           const id = String(i).padStart(2, '0');
@@ -227,8 +225,8 @@
       }, 500);
     }
 
-    document.getElementById('refresh').addEventListener('click', renderParking);
-    window.addEventListener('DOMContentLoaded', renderParking);
+    document.getElementById('refresh').addEventListener('click', () => renderParking());
+    window.addEventListener('DOMContentLoaded', () => renderParking());
   </script>
 </body>
 </html>
