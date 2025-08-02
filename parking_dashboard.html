@@ -157,12 +157,12 @@
     function renderParking() {
       const grid = document.getElementById('parkingGrid');
       
-      // 添加刷新動畫
       const spots = document.querySelectorAll('.spot');
-      spots.forEach(spot => spot.classList.add('refreshing'));
-
+      if (spots.length > 0) {
+        spots.forEach(spot => spot.classList.add('refreshing'));
+      }
+      
       setTimeout(() => {
-        // 動畫結束後才更新內容
         grid.innerHTML = '';
         
         const lines = parkingCsvData.split('\n').filter(line => line.trim() !== '');
@@ -224,9 +224,7 @@
           grid.appendChild(spotDiv);
         }
         
-        spots.forEach(spot => spot.classList.remove('refreshing'));
-
-      }, 500); // 延遲 500ms 以配合動畫
+      }, 500);
     }
 
     document.getElementById('refresh').addEventListener('click', renderParking);
