@@ -21,7 +21,6 @@
     html, body {
       margin: 0;
       padding: 0;
-      /* 柔和的漸層背景 */
       background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
       font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
       color: #333;
@@ -140,6 +139,9 @@
         <button id="refresh">刷新停車狀態</button>
     </div>
   </div>
+  <footer class="text-center text-gray-500 text-sm mt-8">
+    © 佳元松江2025
+  </footer>
   <script>
     const parkingCsvData = `日期,停放時間,離開時間,車牌號碼,戶別,停車人,停放地點,車位號
 114/08/02,12:01:00,,GD8899,3CD-3樓,屋主,一樓外圍,無
@@ -192,7 +194,6 @@
           }))
           .filter(car => car.parkingTime && !car.leaveTime);
 
-        // 處理日期格式
         const firstDate = dataRows[0].split(',')[dateIndex].trim();
         const formattedDate = firstDate.replace('年', '-').replace('月', '-').replace('日', '');
         document.getElementById('dashboardTitle').textContent = `佳元松江社區 一樓停車位儀表板 (${formattedDate})`;
