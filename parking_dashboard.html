@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* 自定義滾動條樣式 */
+    /* Custom scrollbar styles */
     ::-webkit-scrollbar {
       width: 8px;
     }
@@ -28,7 +28,6 @@
 
     .grid {
       display: grid;
-      /* FIX: 調整 minmax 讓手機佈局更佳 */
       grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
       gap: 1.25rem;
       width: 95%;
@@ -42,7 +41,7 @@
 
     .spot {
       position: relative;
-      padding-top: 100%; /* 維持 1:1 比例 */
+      padding-top: 100%; /* Maintain 1:1 ratio */
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 4px 15px rgba(0,0,0,0.08);
@@ -57,10 +56,7 @@
 
     .spot-inner {
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -73,27 +69,26 @@
     }
     
     .spot-number {
-        /* FIX: 使用 clamp 實現流動字體大小 */
         font-size: clamp(1.8rem, 8vw, 2.5rem);
         font-weight: bold;
     }
 
-    /* 各種狀態的漸層和動畫 */
+    /* Status gradients and animations */
     .status-available { 
       background: linear-gradient(45deg, #66bb6a, #43a047); 
     }
-    
-    .status-occupied-owner { /* 有買車位的屋主 */
+    .status-occupied-owner { /* Owner with parking space */
       background: linear-gradient(45deg, #42a5f5, #1e88e5); 
     }
-    
-    .status-occupied-temp { /* 沒有買車位的屋主 */
+    .status-occupied-temp { /* Visitor/Owner without space */
       background: linear-gradient(45deg, #ef5350, #d32f2f); 
       animation: occupiedPulse 2.5s infinite ease-in-out;
     }
-
-    .status-occupied-construction { /* 施工臨停 */
+    .status-occupied-construction { /* Construction */
       background: linear-gradient(45deg, #ffca28, #ffb300);
+    }
+    .status-occupied-vip { /* VIP Guest */
+      background: linear-gradient(45deg, #a78bfa, #8b5cf6);
     }
     
     @keyframes occupiedPulse {
@@ -111,13 +106,11 @@
     }
 
     .spot-status {
-      /* FIX: 使用 clamp 實現流動字體大小 */
       font-size: clamp(0.75rem, 3vw, 0.9rem);
       font-weight: normal;
       margin-top: 0.25rem;
     }
     .car-info {
-        /* FIX: 使用 clamp 實現流動字體大小 */
         font-size: clamp(0.8rem, 3.5vw, 1rem);
         font-weight: bold;
         margin-top: 0.25rem;
@@ -129,7 +122,6 @@
 <body class="antialiased">
   <div class="container mx-auto p-4">
     <div class="text-center my-4">
-      <!-- FIX: 使用 Tailwind 響應式 class 調整標題大小 -->
       <h1 id="dashboardTitle" class="text-2xl sm:text-3xl font-bold text-gray-800">佳元松江社區 臨停車位儀表板</h1>
       <p id="lastUpdated" class="text-sm sm:text-base text-gray-500 mt-2">-</p>
     </div>
@@ -145,7 +137,6 @@
     </div>
 
     <div id="content" class="hidden">
-      <!-- 預先建立 7 個停車格的結構 -->
       <div class="grid" id="parkingGrid">
         <div class="spot" data-spot-id="01"><div class="spot-inner"></div></div>
         <div class="spot" data-spot-id="02"><div class="spot-inner"></div></div>
@@ -162,26 +153,21 @@
   </footer>
 
   <script type="module">
-    // Firebase 相關設定 - import 必須在模組的最頂層
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // 確保 DOM 完全載入後再執行腳本
     document.addEventListener('DOMContentLoaded', () => {
-      // --- 設定 ---
+      // --- Settings ---
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      
       let firebaseConfig;
       let useTokenAuth = false;
 
-      // 檢查是否有環境提供的設定檔，若無則使用備用設定
       if (typeof __firebase_config !== 'undefined' && __firebase_config) {
         firebaseConfig = JSON.parse(__firebase_config);
-        useTokenAuth = true; // 只在有環境設定檔時，才啟用 Token 驗證
+        useTokenAuth = true;
       } else {
-        console.warn("未偵測到 Firebase 環境設定，將使用備用設定。Token 驗證已停用。");
-        // 備用的 Firebase 設定
+        console.warn("Firebase config not detected, using fallback.");
         firebaseConfig = {
             apiKey: "AIzaSyDeRHsloR1iY0_bzpYbPzdCiBljGfck98k",
             authDomain: "jy-2025.firebaseapp.com",
@@ -197,73 +183,25 @@
       const collectionPath = `/artifacts/${appId}/public/data/parking-records`;
       const TOTAL_SPOTS = 7;
 
-      // --- 住戶車位資料 ---
-      const residentParkingCsvData = `戶別,所有權人,車位
-      10A-10樓,蔡政隆,無車位
-      10B-10樓,梁本郁,B2-05
-      9A-9樓,黃雅玲,B2/13
-      9B-9樓,張美華,B2-09
-      8A-8樓,黃誼僑,B2/08
-      8B-8樓,佘雪紅,無車位
-      7A-7樓,魏均穎,B2/01
-      7B-7樓,尹衍嵐,無車位
-      7C-7樓,黃怡瑋,無車位
-      7D-7樓,李佳芳,無車位
-      7E-7樓,王楷皓,無車位
-      7F-7樓,游斯涵,無車位
-      6A-6樓,李苾琳,無車位
-      6B-6樓,莊春陽,B2-06
-      6C-6樓,蘇傳欽,無車位
-      6D-6樓,黃薇芝,B2-02
-      6E-6樓,兒玉勝行,無車位
-      6F-6樓,陳品妤,無車位
-      5A-5樓,仇沛珊,無車位
-      5B-5樓,優舍室內裝修,無車位
-      5C-5樓,王子嫣,B2-14
-      5D-5樓,張甄庭,無車位
-      5E-5樓,劉禹秀,B2-07
-      5F-5樓,楊淑如,無車位
-      4A-4樓,蕭承昕,無車位
-      4B-4樓,鄭美蘭,B2-03
-      4CD-4樓,張雅婷,無車位
-      4EF-4樓,李宛儒,B2-04
-      3A-3樓,張儷瑭,無車位
-      3B-3樓,張儷瑋,無車位
-      3CD-3樓,杜啓斌,B2-10
-      3EF-3樓,高慧雯,無車位
-      2A-2樓,許郅玫,無車位
-      2B-2樓,湯蕙如,無車位
-      2C-2樓,黃翎鈞,無車位
-      2D-2樓,郭純純,無車位
-      2E-2樓,林梓聖,無車位
-      2F-2樓,魏慶龍,無車位
-      1A-1樓,之餘國際室內裝修工程有限公司,B2/11
-      1B-1樓,之餘國際室內裝修工程有限公司,B2-12
-      `;
+      // --- Resident Data ---
+      const residentParkingMap = new Map([
+        ['10B-10樓', 'B2-05'], ['9A-9樓', 'B2/13'], ['9B-9樓', 'B2-09'],
+        ['8A-8樓', 'B2/08'], ['7A-7樓', 'B2/01'], ['6B-6樓', 'B2-06'],
+        ['6D-6樓', 'B2-02'], ['5C-5樓', 'B2-14'], ['5E-5樓', 'B2-07'],
+        ['4B-4樓', 'B2-03'], ['4EF-4樓', 'B2-04'], ['3CD-3樓', 'B2-10'],
+        ['1A-1樓', 'B2/11'], ['1B-1樓', 'B2-12']
+      ]);
 
-      // --- DOM 元素 ---
+      // --- DOM Elements ---
       const loadingDiv = document.getElementById('loading');
       const contentDiv = document.getElementById('content');
       const titleEl = document.getElementById('dashboardTitle');
       const lastUpdatedEl = document.getElementById('lastUpdated');
       const parkingSpots = document.querySelectorAll('.spot');
 
-      // --- 應用程式邏輯 ---
-      let db, auth, userId;
-      let residentParkingMap = new Map();
+      // --- App Logic ---
+      let db, auth;
 
-      // 解析住戶車位資料，只在啟動時執行一次
-      function parseResidentData() {
-        const lines = residentParkingCsvData.split(/\r?\n/).slice(1).filter(line => line.trim() !== '');
-        lines.forEach(line => {
-          const [huBei, , carSpot] = line.split(',').map(item => item.trim());
-          if (huBei && carSpot && carSpot !== '無車位') {
-            residentParkingMap.set(huBei, carSpot);
-          }
-        });
-      }
-
-      // 更新畫面的函式 (核心)
       function renderParking(records) {
         const occupiedCount = records.length;
         const availableCount = TOTAL_SPOTS - occupiedCount;
@@ -280,15 +218,19 @@
 
           if (spotNumber <= occupiedCount) {
             const car = records[index];
-            const isConstruction = car.huBei && car.huBei.includes('施工');
+            const huBeiUpper = car.huBei ? car.huBei.toUpperCase() : '';
+            const isConstruction = huBeiUpper.includes('施工');
+            const isVip = huBeiUpper === '貴賓' || huBeiUpper === 'VIP';
             const isOwnerWithSpot = residentParkingMap.has(car.huBei);
 
-            if (isConstruction) {
-              newClassName += 'status-occupied-construction';
+            if (isVip) {
+                newClassName += 'status-occupied-vip';
+            } else if (isConstruction) {
+                newClassName += 'status-occupied-construction';
             } else if (isOwnerWithSpot) {
-              newClassName += 'status-occupied-owner';
+                newClassName += 'status-occupied-owner';
             } else {
-              newClassName += 'status-occupied-temp';
+                newClassName += 'status-occupied-temp';
             }
             
             newHtml = `<div class="spot-number">${String(spotNumber).padStart(2, '0')}</div>
@@ -315,7 +257,6 @@
         contentDiv.classList.remove('hidden');
       }
 
-      // 初始化 Firebase
       async function initializeAppAndAuth() {
         try {
           const app = initializeApp(firebaseConfig);
@@ -330,20 +271,16 @@
 
           onAuthStateChanged(auth, (user) => {
             if (user) {
-              userId = user.uid;
               setupRealtimeListener();
             } else {
-              console.error('Firebase: 使用者未登入。');
-              loadingDiv.textContent = '錯誤：無法驗證使用者身份，請重新載入頁面。';
+              console.error('Firebase: User not signed in.');
             }
           });
         } catch (e) {
-          console.error("Firebase 初始化失敗:", e);
-          loadingDiv.textContent = `錯誤：無法連接至伺服器。(${e.message})`;
+          console.error("Firebase initialization failed:", e);
         }
       }
 
-      // 設定即時資料監聽
       function setupRealtimeListener() {
         try {
           const collectionRef = collection(db, collectionPath);
@@ -354,25 +291,17 @@
               .map(doc => ({ id: doc.id, ...doc.data() }))
               .filter(record => !record.leaveTime); 
             
-            records.sort((a, b) => {
-              const timeA = a.entryTime?.seconds || 0;
-              const timeB = b.entryTime?.seconds || 0;
-              return timeA - timeB;
-            });
+            records.sort((a, b) => (a.entryTime?.seconds || 0) - (b.entryTime?.seconds || 0));
             
             renderParking(records);
           }, (error) => {
-            console.error("Firestore 資料監聽失敗:", error);
-            loadingDiv.textContent = '錯誤：無法即時同步資料。';
+            console.error("Firestore data listener failed:", error);
           });
         } catch (e) {
-          console.error("設定 Firestore 監聽器失敗:", e);
-          loadingDiv.textContent = '錯誤：無法設定資料監聽。';
+          console.error("Failed to set up Firestore listener:", e);
         }
       }
 
-      // --- 程式啟動點 ---
-      parseResidentData();
       initializeAppAndAuth();
     });
   </script>
