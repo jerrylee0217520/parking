@@ -167,14 +167,26 @@
       // --- 設定 ---
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
       
-      // *** FIX: 使用環境提供的 Firebase 設定，而不是寫死的設定 ***
-      if (typeof __firebase_config === 'undefined') {
-        const loadingDiv = document.getElementById('loading');
-        loadingDiv.textContent = '錯誤：Firebase 設定檔遺失，無法初始化應用程式。';
-        console.error('Firebase config is not available.');
-        return; // 如果缺少設定，則停止執行
+      let firebaseConfig;
+      let useTokenAuth = false;
+
+      // *** FIX: 檢查是否有環境提供的設定檔，若無則使用備用設定 ***
+      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+        firebaseConfig = JSON.parse(__firebase_config);
+        useTokenAuth = true; // 只在有環境設定檔時，才啟用 Token 驗證
+      } else {
+        console.warn("未偵測到 Firebase 環境設定，將使用備用設定。Token 驗證已停用。");
+        // 備用的 Firebase 設定
+        firebaseConfig = {
+            apiKey: "AIzaSyDeRHsloR1iY0_bzpYbPzdCiBljGfck98k",
+            authDomain: "jy-2025.firebaseapp.com",
+            projectId: "jy-2025",
+            storageBucket: "jy-2025.appspot.com",
+            messagingSenderId: "640527461851",
+            appId: "1:640527461851:web:eed9f82d698275371fcbfe",
+            measurementId: "G-HVEVMTSR9L"
+        };
       }
-      const firebaseConfig = JSON.parse(__firebase_config);
       
       const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
       const collectionPath = `/artifacts/${appId}/public/data/parking-records`;
@@ -251,10 +263,7 @@
         const occupiedCount = records.length;
         const availableCount = TOTAL_SPOTS - occupiedCount;
         
-        // 更新主標題
         titleEl.textContent = `臨停車位儀表板 (尚有 ${availableCount} 空位)`;
-        
-        // 更新最後更新時間
         const now = new Date();
         lastUpdatedEl.textContent = `最後更新: ${now.toLocaleTimeString('zh-TW')}`;
 
@@ -265,7 +274,6 @@
           let newHtml = '';
 
           if (spotNumber <= occupiedCount) {
-            // 已停車
             const car = records[index];
             const isConstruction = car.huBei && car.huBei.includes('施工');
             const isOwnerWithSpot = residentParkingMap.has(car.huBei);
@@ -282,13 +290,11 @@
                        <div class="spot-status">已停車</div>
                        <div class="car-info">${car.carPlate || ''}<br>${car.huBei || ''}</div>`;
           } else {
-            // 可停車
             newClassName += 'status-available';
             newHtml = `<div class="spot-number">${String(spotNumber).padStart(2, '0')}</div>
                        <div class="spot-status">可停</div>`;
           }
 
-          // 只在需要時更新 DOM
           if (spotDiv.className !== newClassName) {
             spotDiv.className = newClassName;
           }
@@ -296,12 +302,10 @@
             innerDiv.innerHTML = newHtml;
           }
           
-          // 觸發刷新動畫
           spotDiv.classList.add('refreshing');
           setTimeout(() => spotDiv.classList.remove('refreshing'), 800);
         });
 
-        // 顯示內容
         loadingDiv.classList.add('hidden');
         contentDiv.classList.remove('hidden');
       }
@@ -313,7 +317,8 @@
           db = getFirestore(app);
           auth = getAuth(app);
 
-          if (initialAuthToken) {
+          // *** FIX: 只有在啟用 Token 驗證時才使用 custom token ***
+          if (useTokenAuth && initialAuthToken) {
             await signInWithCustomToken(auth, initialAuthToken);
           } else {
             await signInAnonymously(auth);
@@ -338,13 +343,11 @@
       function setupRealtimeListener() {
         try {
           const collectionRef = collection(db, collectionPath);
-          // *** FIX: 移除 orderBy，改為在客戶端排序，以避免需要複合索引 ***
           const q = query(collectionRef, where("leaveTime", "==", null));
 
           onSnapshot(q, (snapshot) => {
             let records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            // 在客戶端手動排序
             records.sort((a, b) => {
               const timeA = a.entryTime?.seconds || 0;
               const timeB = b.entryTime?.seconds || 0;
