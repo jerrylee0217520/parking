@@ -28,7 +28,8 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      /* FIX: 調整 minmax 讓手機佈局更佳 */
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
       gap: 1.25rem;
       width: 95%;
       max-width: 1000px;
@@ -72,7 +73,8 @@
     }
     
     .spot-number {
-        font-size: 1.8rem;
+        /* FIX: 使用 clamp 實現流動字體大小 */
+        font-size: clamp(1.8rem, 8vw, 2.5rem);
         font-weight: bold;
     }
 
@@ -109,12 +111,14 @@
     }
 
     .spot-status {
-      font-size: 0.8rem;
+      /* FIX: 使用 clamp 實現流動字體大小 */
+      font-size: clamp(0.75rem, 3vw, 0.9rem);
       font-weight: normal;
       margin-top: 0.25rem;
     }
     .car-info {
-        font-size: 1rem;
+        /* FIX: 使用 clamp 實現流動字體大小 */
+        font-size: clamp(0.8rem, 3.5vw, 1rem);
         font-weight: bold;
         margin-top: 0.25rem;
         line-height: 1.3;
@@ -125,8 +129,9 @@
 <body class="antialiased">
   <div class="container mx-auto p-4">
     <div class="text-center my-4">
-      <h1 id="dashboardTitle" class="text-3xl font-bold text-gray-800">佳元松江社區 臨停車位儀表板</h1>
-      <p id="lastUpdated" class="text-sm text-gray-500 mt-2">-</p>
+      <!-- FIX: 使用 Tailwind 響應式 class 調整標題大小 -->
+      <h1 id="dashboardTitle" class="text-2xl sm:text-3xl font-bold text-gray-800">佳元松江社區 臨停車位儀表板</h1>
+      <p id="lastUpdated" class="text-sm sm:text-base text-gray-500 mt-2">-</p>
     </div>
     
     <div id="loading" class="text-center text-gray-500 mt-20">
@@ -160,7 +165,7 @@
     // Firebase 相關設定 - import 必須在模組的最頂層
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // 確保 DOM 完全載入後再執行腳本
     document.addEventListener('DOMContentLoaded', () => {
@@ -170,7 +175,7 @@
       let firebaseConfig;
       let useTokenAuth = false;
 
-      // *** FIX: 檢查是否有環境提供的設定檔，若無則使用備用設定 ***
+      // 檢查是否有環境提供的設定檔，若無則使用備用設定
       if (typeof __firebase_config !== 'undefined' && __firebase_config) {
         firebaseConfig = JSON.parse(__firebase_config);
         useTokenAuth = true; // 只在有環境設定檔時，才啟用 Token 驗證
@@ -317,7 +322,6 @@
           db = getFirestore(app);
           auth = getAuth(app);
 
-          // *** FIX: 只有在啟用 Token 驗證時才使用 custom token ***
           if (useTokenAuth && initialAuthToken) {
             await signInWithCustomToken(auth, initialAuthToken);
           } else {
@@ -343,10 +347,12 @@
       function setupRealtimeListener() {
         try {
           const collectionRef = collection(db, collectionPath);
-          const q = query(collectionRef, where("leaveTime", "==", null));
+          const q = query(collectionRef);
 
           onSnapshot(q, (snapshot) => {
-            let records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            let records = snapshot.docs
+              .map(doc => ({ id: doc.id, ...doc.data() }))
+              .filter(record => !record.leaveTime); 
             
             records.sort((a, b) => {
               const timeA = a.entryTime?.seconds || 0;
