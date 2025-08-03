@@ -74,7 +74,15 @@
     import { getFirestore, doc, setDoc, onSnapshot, collection, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const firebaseConfig = {
+      apiKey: "AIzaSyDeRHsloR1iY0_bzpYbPzdCiBljGfck98k",
+      authDomain: "jy-2025.firebaseapp.com",
+      projectId: "jy-2025",
+      storageBucket: "jy-2025.firebasestorage.app",
+      messagingSenderId: "640527461851",
+      appId: "1:640527461851:web:eed9f82d698275371fcbfe",
+      measurementId: "G-HVEVMTSR9L"
+    };
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     let db;
