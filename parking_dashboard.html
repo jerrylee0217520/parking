@@ -219,34 +219,26 @@
     function renderParking(records) {
       const grid = document.getElementById('parkingGrid');
       
-      const spots = document.querySelectorAll('.spot');
-      if (spots.length > 0) {
-        spots.forEach(spot => spot.classList.add('refreshing'));
-      }
-      
-      setTimeout(() => {
-        grid.innerHTML = '';
+      const residentParkingLines = residentParkingCsvData.split(/\r?\n/).slice(1).filter(line => line.trim() !== '');
+      const residentParkingMap = residentParkingLines.reduce((acc, line) => {
+          const values = line.split(',');
+          const huBei = values[0]?.trim();
+          const carSpot = values[2]?.trim();
+          if (huBei && carSpot && carSpot !== '無車位') {
+              acc[huBei] = carSpot;
+          }
+          return acc;
+      }, {});
+
+      const occupiedCount = records.length;
+      for (let i = 1; i <= 7; i++) {
+        const id = String(i).padStart(2, '0');
+        const isOccupied = i <= occupiedCount;
         
-        const residentParkingLines = residentParkingCsvData.split(/\r?\n/).slice(1).filter(line => line.trim() !== '');
-        const residentParkingMap = residentParkingLines.reduce((acc, line) => {
-            const values = line.split(',');
-            const huBei = values[0]?.trim();
-            const carSpot = values[2]?.trim();
-            if (huBei && carSpot && carSpot !== '無車位') {
-                acc[huBei] = carSpot;
-            }
-            return acc;
-        }, {});
+        let spotDiv = document.createElement('div');
+        let innerDiv = document.createElement('div');
 
-        const occupiedCount = records.length;
-        for (let i = 1; i <= 7; i++) {
-          const id = String(i).padStart(2, '0');
-          const isOccupied = i <= occupiedCount;
-          
-          let spotDiv = document.createElement('div');
-          let innerDiv = document.createElement('div');
-
-          if (isOccupied) {
+        if (isOccupied) {
             const car = records[i - 1];
             let isConstruction = car['huBei'] && car['huBei'].includes('施工');
             let isOwnerWithSpot = !!residentParkingMap[car['huBei']];
@@ -275,8 +267,6 @@
           spotDiv.appendChild(innerDiv);
           grid.appendChild(spotDiv);
         }
-        
-      }, 500);
     }
     
     async function initializeAppAndAuth() {
@@ -310,7 +300,9 @@
             onSnapshot(collectionRef, (snapshot) => {
                 const records = [];
                 snapshot.forEach(doc => {
-                    records.push({ id: doc.id, ...doc.data() });
+                    if (!doc.data().leaveTime) { // Filter out records that have a leaveTime
+                        records.push({ id: doc.id, ...doc.data() });
+                    }
                 });
                 renderParking(records);
             }, (error) => {
