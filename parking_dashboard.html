@@ -98,25 +98,6 @@
         50% { box-shadow: 0 8px 25px rgba(239, 83, 80, 0.4); }
     }
 
-    #refresh {
-      display: block;
-      margin: 1.5rem auto;
-      padding: 0.75rem 1.5rem;
-      font-size: 1.1rem;
-      background: #2E5540;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(46,85,64,0.3);
-      transition: all 0.3s ease;
-    }
-
-    #refresh:active {
-        transform: translateY(1px);
-        box-shadow: 0 2px 10px rgba(46,85,64,0.4);
-    }
-    
     .spot.refreshing {
         animation: spotRefresh 0.8s ease-in-out;
     }
@@ -143,9 +124,19 @@
 <body class="antialiased">
   <div class="container mx-auto p-4">
     <h1 id="dashboardTitle" class="text-3xl font-bold text-center text-gray-800 my-4">佳元松江社區 一樓臨時停車位儀表板</h1>
-    <div class="grid" id="parkingGrid"></div>
-    <div class="flex flex-col sm:flex-row justify-center mt-4 space-y-2 sm:space-y-0 sm:space-x-4">
-        <button id="refresh">刷新停車狀態</button>
+    
+    <div id="loading" class="text-center text-gray-500 mt-20">
+      <div class="flex flex-col items-center justify-center">
+        <svg class="animate-spin h-8 w-8 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="mt-4">載入中...</span>
+      </div>
+    </div>
+
+    <div id="content" class="hidden">
+      <div class="grid" id="parkingGrid"></div>
     </div>
   </div>
   <footer class="text-center text-gray-500 text-sm mt-8">
@@ -305,6 +296,8 @@
                     }
                 });
                 renderParking(records);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('content').classList.remove('hidden');
             }, (error) => {
                 console.error("Failed to listen to Firestore:", error);
             });
