@@ -151,10 +151,28 @@
   <footer class="text-center text-gray-500 text-sm mt-8">
     © 佳元松江-管理中心2025
   </footer>
-  <script>
-    const remoteCsvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRZtav6tP67x1gPyFeRo_lyok--bE1VHCxs-_W5DNnytDdexun_k-c48ZNLrmoUmRX_BK-vtVksXYC8/pub?output=csv";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // 內嵌住戶車位清單 CSV 數據
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = {
+      apiKey: "AIzaSyDeRHsloR1iY0_bzpYbPzdCiBljGfck98k",
+      authDomain: "jy-2025.firebaseapp.com",
+      projectId: "jy-2025",
+      storageBucket: "jy-2025.firebasestorage.app",
+      messagingSenderId: "640527461851",
+      appId: "1:640527461851:web:eed9f82d698275371fcbfe",
+      measurementId: "G-HVEVMTSR9L"
+    };
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    let db;
+    let auth;
+    let userId;
+    const collectionPath = `/artifacts/${appId}/public/data/parking-records`;
+    
     const residentParkingCsvData = `戶別,所有權人,車位
 10A-10樓,蔡政隆,無車位
 10B-10樓,梁本郁,B2-05
@@ -197,8 +215,8 @@
 1A-1樓,之餘國際室內裝修工程有限公司,B2/11
 1B-1樓,之餘國際室內裝修工程有限公司,B2-12
 `;
-
-    function renderParking(parkingCsvData) {
+    
+    function renderParking(records) {
       const grid = document.getElementById('parkingGrid');
       
       const spots = document.querySelectorAll('.spot');
@@ -209,26 +227,6 @@
       setTimeout(() => {
         grid.innerHTML = '';
         
-        const lines = parkingCsvData.split(/\r?\n/).filter(line => line.trim() !== '');
-        if (lines.length < 2) {
-            spots.forEach(spot => spot.classList.remove('refreshing'));
-            return;
-        }
-
-        const headers = lines[0].split(',').map(h => h.trim());
-        const dataRows = lines.slice(1);
-
-        const getIndex = (name) => headers.indexOf(name);
-        
-        const allParkingInfo = dataRows.map(row => row.split(','))
-          .map(values => {
-              const rowData = {};
-              headers.forEach((header, index) => {
-                  rowData[header] = values[index]?.trim();
-              });
-              return rowData;
-          });
-
         const residentParkingLines = residentParkingCsvData.split(/\r?\n/).slice(1).filter(line => line.trim() !== '');
         const residentParkingMap = residentParkingLines.reduce((acc, line) => {
             const values = line.split(',');
@@ -240,17 +238,7 @@
             return acc;
         }, {});
 
-        const carsInParking = allParkingInfo.filter(car => car['停放時間'] && !car['離開時間']);
-
-        const firstDate = allParkingInfo[0]['日期']?.trim();
-        let formattedDate = firstDate;
-        if (firstDate) {
-          formattedDate = firstDate.replace(/(\d{4})\/(\d{1,2})\/(\d{1,2})/, '$1-$2-$3')
-                                   .replace(/(\d{2,4})年(\d{1,2})月(\d{1,2})日/, '$1-$2-$3');
-        }
-        document.getElementById('dashboardTitle').textContent = `佳元松江社區 一樓臨時停車位儀表板 (${formattedDate})`;
-        
-        const occupiedCount = carsInParking.length;
+        const occupiedCount = records.length;
         for (let i = 1; i <= 7; i++) {
           const id = String(i).padStart(2, '0');
           const isOccupied = i <= occupiedCount;
@@ -259,23 +247,23 @@
           let innerDiv = document.createElement('div');
 
           if (isOccupied) {
-              const car = carsInParking[i - 1];
-              let isConstruction = car['戶別'] && car['戶別'].includes('施工');
-              let isOwnerWithSpot = !!residentParkingMap[car['戶別']];
+            const car = records[i - 1];
+            let isConstruction = car['huBei'] && car['huBei'].includes('施工');
+            let isOwnerWithSpot = !!residentParkingMap[car['huBei']];
 
-              if (isConstruction) {
-                  spotDiv.className = 'spot status-occupied-construction';
-              } else if (isOwnerWithSpot) {
-                  spotDiv.className = 'spot status-occupied-owner';
-              } else {
-                  spotDiv.className = 'spot status-occupied-temp';
-              }
+            if (isConstruction) {
+                spotDiv.className = 'spot status-occupied-construction';
+            } else if (isOwnerWithSpot) {
+                spotDiv.className = 'spot status-occupied-owner';
+            } else {
+                spotDiv.className = 'spot status-occupied-temp';
+            }
 
-              innerDiv.className = 'spot-inner';
-              let spotHtml = `<div class="spot-number">${id}</div>`;
-              spotHtml += `<div class="spot-status">已停車</div>`;
-              spotHtml += `<div class="car-info">${car['車牌號碼']}<br>${car['戶別']}</div>`;
-              innerDiv.innerHTML = spotHtml;
+            innerDiv.className = 'spot-inner';
+            let spotHtml = `<div class="spot-number">${id}</div>`;
+            spotHtml += `<div class="spot-status">已停車</div>`;
+            spotHtml += `<div class="car-info">${car['carPlate']}<br>${car['huBei']}</div>`;
+            innerDiv.innerHTML = spotHtml;
           } else {
               spotDiv.className = 'spot status-available';
               innerDiv.className = 'spot-inner';
@@ -290,32 +278,55 @@
         
       }, 500);
     }
-
-    async function fetchAndRenderData(url) {
+    
+    async function initializeAppAndAuth() {
         try {
-            const grid = document.getElementById('parkingGrid');
-            grid.innerHTML = `<p class="text-center col-span-full">正在載入遠端數據...</p>`;
-            
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            if (initialAuthToken) {
+              await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+              await signInAnonymously(auth);
             }
-            const data = await response.text();
-            renderParking(data);
-        } catch (error) {
-            console.error("無法載入遠端 CSV 檔案:", error);
-            const grid = document.getElementById('parkingGrid');
-            grid.innerHTML = `<p class="text-red-500 text-center col-span-full">載入數據失敗。請檢查網址、檔案編碼或網路連線。</p>`;
+
+            onAuthStateChanged(auth, (user) => {
+              if (user) {
+                userId = user.uid;
+                setupRealtimeListener();
+              } else {
+                console.error('User not signed in.');
+              }
+            });
+        } catch (e) {
+            console.error("Initialization failed:", e);
         }
     }
 
-    document.getElementById('refresh').addEventListener('click', () => fetchAndRenderData(remoteCsvUrl));
-    window.addEventListener('DOMContentLoaded', () => fetchAndRenderData(remoteCsvUrl));
-    
-    // 每 30 秒自動刷新一次數據
-    setInterval(() => {
-      fetchAndRenderData(remoteCsvUrl);
-    }, 30000);
+    function setupRealtimeListener() {
+        try {
+            const collectionRef = collection(db, collectionPath);
+            onSnapshot(collectionRef, (snapshot) => {
+                const records = [];
+                snapshot.forEach(doc => {
+                    records.push({ id: doc.id, ...doc.data() });
+                });
+                renderParking(records);
+            }, (error) => {
+                console.error("Failed to listen to Firestore:", error);
+            });
+        } catch (e) {
+            console.error("Failed to set up Firestore listener:", e);
+        }
+    }
+
+    document.getElementById('refresh').addEventListener('click', () => {
+        // This is a Firestore-based app, so "refresh" is handled by the onSnapshot listener.
+        // Forcing a re-render can be done, but in this real-time context, it's not strictly necessary.
+    });
+
+    window.addEventListener('DOMContentLoaded', initializeAppAndAuth);
   </script>
 </body>
 </html>
