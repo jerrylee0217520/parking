@@ -260,7 +260,7 @@
 
           if (isOccupied) {
               const car = carsInParking[i - 1];
-              let isConstruction = car['戶別'] === '施工';
+              let isConstruction = car['戶別'] && car['戶別'].includes('施工');
               let isOwnerWithSpot = !!residentParkingMap[car['戶別']];
 
               if (isConstruction) {
