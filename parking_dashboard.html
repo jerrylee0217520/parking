@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>佳元松江社區 一樓臨時停車位即時狀態</title>
+  <title>佳元松江社區 臨時停車位即時狀態</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -138,13 +138,7 @@
 
     <div id="content" class="hidden">
       <div class="grid" id="parkingGrid">
-        <div class="spot" data-spot-id="01"><div class="spot-inner"></div></div>
-        <div class="spot" data-spot-id="02"><div class="spot-inner"></div></div>
-        <div class="spot" data-spot-id="03"><div class="spot-inner"></div></div>
-        <div class="spot" data-spot-id="04"><div class="spot-inner"></div></div>
-        <div class="spot" data-spot-id="05"><div class="spot-inner"></div></div>
-        <div class="spot" data-spot-id="06"><div class="spot-inner"></div></div>
-        <div class="spot" data-spot-id="07"><div class="spot-inner"></div></div>
+        <!-- Parking spots will be dynamically generated here -->
       </div>
     </div>
   </div>
@@ -154,53 +148,37 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     document.addEventListener('DOMContentLoaded', () => {
-      // --- Settings ---
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      let firebaseConfig;
-      let useTokenAuth = false;
-
-      if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-        firebaseConfig = JSON.parse(__firebase_config);
-        useTokenAuth = true;
-      } else {
-        console.warn("Firebase config not detected, using fallback.");
-        firebaseConfig = {
-            apiKey: "AIzaSyDeRHsloR1iY0_bzpYbPzdCiBljGfck98k",
-            authDomain: "jy-2025.firebaseapp.com",
-            projectId: "jy-2025",
-            storageBucket: "jy-2025.appspot.com",
-            messagingSenderId: "640527461851",
-            appId: "1:640527461851:web:eed9f82d698275371fcbfe",
-            measurementId: "G-HVEVMTSR9L"
-        };
-      }
+      const firebaseConfig = {
+          apiKey: "AIzaSyDeRHsloR1iY0_bzpYbPzdCiBljGfck98k",
+          authDomain: "jy-2025.firebaseapp.com",
+          projectId: "jy-2025",
+          storageBucket: "jy-2025.appspot.com",
+          messagingSenderId: "640527461851",
+          appId: "1:640527461851:web:eed9f82d698275371fcbfe",
+      };
       
-      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-      const collectionPath = `/artifacts/${appId}/public/data/parking-records`;
       const TOTAL_SPOTS = 7;
 
-      // --- Resident Data ---
-      const residentParkingMap = new Map([
-        ['10B-10樓', 'B2-05'], ['9A-9樓', 'B2/13'], ['9B-9樓', 'B2-09'],
-        ['8A-8樓', 'B2/08'], ['7A-7樓', 'B2/01'], ['6B-6樓', 'B2-06'],
-        ['6D-6樓', 'B2-02'], ['5C-5樓', 'B2-14'], ['5E-5樓', 'B2-07'],
-        ['4B-4樓', 'B2-03'], ['4EF-4樓', 'B2-04'], ['3CD-3樓', 'B2-10'],
-        ['1A-1樓', 'B2/11'], ['1B-1樓', 'B2-12']
-      ]);
-
-      // --- DOM Elements ---
       const loadingDiv = document.getElementById('loading');
       const contentDiv = document.getElementById('content');
       const titleEl = document.getElementById('dashboardTitle');
       const lastUpdatedEl = document.getElementById('lastUpdated');
-      const parkingSpots = document.querySelectorAll('.spot');
+      const parkingGrid = document.getElementById('parkingGrid');
 
-      // --- App Logic ---
       let db, auth;
+
+      // ##### NEW: Function to safely convert timestamp or string to Date object #####
+      function parseTimestamp(timestamp) {
+        if (!timestamp) return null;
+        if (typeof timestamp.toDate === 'function') {
+          return timestamp.toDate(); // It's a Firestore Timestamp
+        }
+        return new Date(timestamp); // It's likely an ISO string
+      }
 
       function renderParking(records) {
         const occupiedCount = records.length;
@@ -209,49 +187,53 @@
         titleEl.textContent = `臨停車位儀表板 (尚有 ${availableCount} 空位)`;
         const now = new Date();
         lastUpdatedEl.textContent = `最後更新: ${now.toLocaleTimeString('zh-TW')}`;
+        
+        parkingGrid.innerHTML = ''; // Clear previous spots
 
-        parkingSpots.forEach((spotDiv, index) => {
-          const spotNumber = index + 1;
-          const innerDiv = spotDiv.querySelector('.spot-inner');
-          let newClassName = 'spot ';
-          let newHtml = '';
-
-          if (spotNumber <= occupiedCount) {
-            const car = records[index];
-            const huBeiUpper = car.huBei ? car.huBei.toUpperCase() : '';
-            const isConstruction = huBeiUpper.includes('施工');
-            const isVip = huBeiUpper === '貴賓' || huBeiUpper === 'VIP';
-            const isOwnerWithSpot = residentParkingMap.has(car.huBei);
-
-            if (isVip) {
-                newClassName += 'status-occupied-vip';
-            } else if (isConstruction) {
-                newClassName += 'status-occupied-construction';
-            } else if (isOwnerWithSpot) {
-                newClassName += 'status-occupied-owner';
-            } else {
-                newClassName += 'status-occupied-temp';
-            }
+        for (let i = 1; i <= TOTAL_SPOTS; i++) {
+            const spotDiv = document.createElement('div');
+            const innerDiv = document.createElement('div');
+            spotDiv.className = 'spot';
+            innerDiv.className = 'spot-inner';
+            spotDiv.appendChild(innerDiv);
             
-            newHtml = `<div class="spot-number">${String(spotNumber).padStart(2, '0')}</div>
-                       <div class="spot-status">已停車</div>
-                       <div class="car-info">${car.carPlate || ''}<br>${car.huBei || ''}</div>`;
-          } else {
-            newClassName += 'status-available';
-            newHtml = `<div class="spot-number">${String(spotNumber).padStart(2, '0')}</div>
-                       <div class="spot-status">可停</div>`;
-          }
+            let newClassName = 'spot ';
+            let newHtml = '';
 
-          if (spotDiv.className !== newClassName) {
+            if (i <= occupiedCount) {
+                const car = records[i - 1];
+                const huBeiUpper = car.unit ? car.unit.toUpperCase() : '';
+                const isConstruction = huBeiUpper.includes('施工');
+                const isVip = huBeiUpper === '貴賓' || huBeiUpper === 'VIP';
+                const isOwnerWithSpot = !!car.spotNumber; // Check if spotNumber exists
+
+                if (isVip) {
+                    newClassName += 'status-occupied-vip';
+                } else if (isConstruction) {
+                    newClassName += 'status-occupied-construction';
+                } else if (isOwnerWithSpot) {
+                    newClassName += 'status-occupied-owner';
+                } else {
+                    newClassName += 'status-occupied-temp';
+                }
+                
+                newHtml = `<div class="spot-number">${String(i).padStart(2, '0')}</div>
+                           <div class="spot-status">已停車</div>
+                           <div class="car-info">${car.licensePlate || ''}<br>${car.unit || ''}</div>`;
+            } else {
+                newClassName += 'status-available';
+                newHtml = `<div class="spot-number">${String(i).padStart(2, '0')}</div>
+                           <div class="spot-status">可停</div>`;
+            }
+
             spotDiv.className = newClassName;
-          }
-          if (innerDiv.innerHTML !== newHtml) {
             innerDiv.innerHTML = newHtml;
-          }
-          
-          spotDiv.classList.add('refreshing');
-          setTimeout(() => spotDiv.classList.remove('refreshing'), 800);
-        });
+            parkingGrid.appendChild(spotDiv);
+
+            // Add refresh animation
+            spotDiv.classList.add('refreshing');
+            setTimeout(() => spotDiv.classList.remove('refreshing'), 800);
+        }
 
         loadingDiv.classList.add('hidden');
         contentDiv.classList.remove('hidden');
@@ -262,40 +244,34 @@
           const app = initializeApp(firebaseConfig);
           db = getFirestore(app);
           auth = getAuth(app);
-
-          if (useTokenAuth && initialAuthToken) {
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else {
-            await signInAnonymously(auth);
-          }
-
-          onAuthStateChanged(auth, (user) => {
-            if (user) {
-              setupRealtimeListener();
-            } else {
-              console.error('Firebase: User not signed in.');
-            }
-          });
+          await signInAnonymously(auth);
+          setupRealtimeListener();
         } catch (e) {
           console.error("Firebase initialization failed:", e);
+          loadingDiv.innerHTML = '<p class="text-red-500">無法連接至伺服器。</p>';
         }
       }
 
       function setupRealtimeListener() {
         try {
-          const collectionRef = collection(db, collectionPath);
-          const q = query(collectionRef);
+          // ##### MODIFIED: Corrected collection path and query #####
+          const collectionRef = collection(db, "parking_records");
+          const q = query(collectionRef, where("status", "==", "present"));
 
           onSnapshot(q, (snapshot) => {
             let records = snapshot.docs
-              .map(doc => ({ id: doc.id, ...doc.data() }))
-              .filter(record => !record.leaveTime); 
+              .map(doc => ({ id: doc.id, ...doc.data() }));
             
-            records.sort((a, b) => (a.entryTime?.seconds || 0) - (b.entryTime?.seconds || 0));
+            records.sort((a, b) => {
+                const timeA = a.entryTime ? (a.entryTime.seconds || 0) : 0;
+                const timeB = b.entryTime ? (b.entryTime.seconds || 0) : 0;
+                return timeA - timeB;
+            });
             
             renderParking(records);
           }, (error) => {
             console.error("Firestore data listener failed:", error);
+            loadingDiv.innerHTML = '<p class="text-red-500">讀取資料失敗，請檢查網路或資料庫設定。</p>';
           });
         } catch (e) {
           console.error("Failed to set up Firestore listener:", e);
